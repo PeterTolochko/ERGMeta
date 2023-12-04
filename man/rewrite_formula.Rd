@@ -14,7 +14,6 @@ rewrite_formula(formula, network)
 }
 \value{
 The rewritten formula with the network as the response variable
-Construct the new formula as a character string
 }
 \description{
 Function to rewrite a formula by replacing the response variable with a specified network

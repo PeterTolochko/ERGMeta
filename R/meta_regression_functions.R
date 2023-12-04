@@ -3,6 +3,7 @@
 #' @param grouping_variable (Optional) The variable used for grouping the network objects
 #' 
 #' @returns A tibble containing the estimates and the SEs for each coefficient.
+#' @export
 extract_estimates <- function(fit_list, grouping_variable=NULL) {
   
   # extract the group from network objects
@@ -66,8 +67,8 @@ extract_estimates <- function(fit_list, grouping_variable=NULL) {
 #' @param df The data frame containing the estimates and SEs
 #' @param group_vars Optional vector of grouping variables
 #' @param sigma (Optional) Logical indicating whether to include sigma in the formula
-#' 
 #' @returns The multivariate formula for the brm function from brms package
+#' @export
 create_mvbf_formula <- function(df, group_vars = NULL, sigma = FALSE) {
   num_pairs <- length(grep("^estimate", colnames(df)))
   
@@ -96,7 +97,7 @@ create_mvbf_formula <- function(df, group_vars = NULL, sigma = FALSE) {
   
   formula_list <- lapply(1:length(formula_list), function(x) bf(as.formula(formula_list[[x]])))
   combined_formula <- Reduce(`+`, formula_list)
-  out_formula <- mvbf(combined_formula,
+  out_formula <- brms::mvbf(combined_formula,
                       rescor = TRUE)
   return(out_formula)
 }
@@ -111,8 +112,8 @@ create_mvbf_formula <- function(df, group_vars = NULL, sigma = FALSE) {
 #' @param iter The number of iterations for each chain (default: 4000)
 #' @param priors The prior distribution for the regression coefficients (default: normal(0, 2))
 #' @param backend The backend for running the Bayesian regression (default: "cmdstanr")
-#'
 #' @returns The fitted model object
+#' @export
 meta_fit <- function(df,
                      group_var = NULL,
                      chains = 4,
@@ -134,7 +135,7 @@ meta_fit <- function(df,
   print("Current Formula:")
   print(current_formula)
   
-  fit <- brm(current_formula,
+  fit <- brms::brm(current_formula,
              prior = priors,
              iter = iter,
              data = df_wide,

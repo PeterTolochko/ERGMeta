@@ -4,6 +4,8 @@
 #' @param formula The original formula to be rewritten. Must be `ergm`-formula.
 #' @param network The network to be used as the new response variable.
 #' @returns The rewritten formula with the network as the response variable
+#' @export
+#' 
 rewrite_formula <- function(formula, network) {
   network_name <- deparse(substitute(network))
   terms <- toString(formula[-c(1:2)]) #' everything but "network_name ~"
@@ -26,9 +28,9 @@ ergm_estimation <- function(network,
   out <- tryCatch(
     {
       if (is.null(control_settings)) {
-        ergm(current_formula)
+        ergm::ergm(current_formula)
       } else {
-        ergm(current_formula, control = control_settings)
+        ergm::ergm(current_formula, control = control_settings)
       }
     },
     error=function(cond) {
@@ -51,12 +53,12 @@ ergm_estimation <- function(network,
 #' @param network_list A list of network objects.
 #' @param formula A formula specifying the model to be estimated
 #' @param control_settings Optional control settings for the estimation process.
-#' 
 #' @returns A list of estimated network models.
 #'
 #' @examples
 #' # networks <- list(net1, net2, net3)
 #' # models <- sequential_estimation(networks, ~edges + nodematch("gender"))
+#' @export
 sequential_estimation <- function(network_list,
                                   formula,
                                   control_settings = NULL) {
