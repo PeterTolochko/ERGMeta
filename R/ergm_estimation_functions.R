@@ -5,11 +5,10 @@
 #' @param network The network to be used as the new response variable.
 #' @returns The rewritten formula with the network as the response variable
 #' @export
-#' 
 rewrite_formula <- function(formula, network) {
   network_name <- deparse(substitute(network))
-  terms <- toString(formula[-c(1:2)]) #' everything but "network_name ~"
-  #' Construct the new formula as a character string
+  terms <- toString(formula[-c(1:2)]) # everything but "network_name ~"
+  # Construct the new formula as a character string
   new_formula <- as.formula(paste(network_name, "~", terms))
   return(new_formula)
 }
@@ -19,8 +18,8 @@ rewrite_formula <- function(formula, network) {
 #' @param network The input network object.
 #' @param formula Formula for ERGM estimation.
 #' @param contro_settings: Optional control settings for the ERGM estimation.
-#' 
 #' @returns The estimated ERGM model object.
+#' @export
 ergm_estimation <- function(network,
                             formula,
                             control_settings = NULL) {
