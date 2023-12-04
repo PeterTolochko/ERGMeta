@@ -1,0 +1,5 @@
+Package: ERGMeta
+Type: Package
+Title: Meta-Analysis for Exponential Random Graph Models
+Version: 0.1.0
+RoxygenNote: 7.2.3
