@@ -69,7 +69,9 @@ sequential_estimation <- function(network_list,
   
   if (sum(non_null_models) != length(out_models)) {
     out_models <- out_models[non_null_models]
-    cat(paste0("Network ", which(non_null_models == FALSE), " could not be estimated."))
+    cat("Networks: ")
+    cat(paste0(which(non_null_models == FALSE), sep = " "))
+    cat("\ncould not be estimated.")
     cat("\nThese networks were removed.\n")
   } else {
     cat("All networks were estimated successfully!")
@@ -79,12 +81,20 @@ sequential_estimation <- function(network_list,
   non_infinite_est <- colSums(non_infinite_est)
   infinite_est <- non_infinite_est < max(non_infinite_est)
   
+  var_estimation <- sapply(out_models, function(x) !is.na(summary(x)$coefficients[ ,2]))
+  var_estimation <- colSums(var_estimation)
+  no_var_estimation <- var_estimation < max(var_estimation)
   
-  if (sum(infinite_est) == 0) {
+  
+  remove_idx <- (infinite_est + no_var_estimation > 0)
+  
+  
+  if (sum(remove_idx) == 0) {
     out_models <- out_models
   } else {
-    out_models <- out_models[!infinite_est]
-    cat(paste0("\nIn addition, network ", which(infinite_est == TRUE), " contains infinite estimates and was removed."))
+    out_models <- out_models[!remove_idx]
+
+    cat(paste0("\nIn addition, network ", which(remove_idx == TRUE), " contains infinite estimates / no variance and was removed."))
     cat("\nConsider re-parametrizing the networks if you want to keep more networks in.")
   }
   return(out_models)

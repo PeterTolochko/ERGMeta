@@ -25,7 +25,7 @@ extract_estimates <- function(fit_list, grouping_variable=NULL) {
   # Convert estimates to tibble and add grouping variables
   estimates <- estimates %>% as_tibble() %>%
     mutate(
-      network = 1:nrow(estimates), #' grouping variable
+      network = 1:nrow(estimates), # grouping variable
       group_var = group_vector
     ) %>%
     pivot_longer(
