@@ -19,7 +19,7 @@ After installing the dependencies, you can install `ERGMeta` from GitHub using t
 
 ```r
 install.packages("devtools")
-devtolls::install_github("PeterTolochko/ERGMeta")
+devtools::install_github("PeterTolochko/ERGMeta")
 ```
 
 # Usage
