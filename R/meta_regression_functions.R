@@ -126,7 +126,7 @@ meta_fit <- function(df,
     pivot_wider(values_from = c(estimate, ses),
                 names_from = coefs)
   
-  if (is.null(group_var)) {
+  if (is.null(group_vars)) {
     current_formula <- create_mvbf_formula(df_wide)
   } else {
     current_formula <- create_mvbf_formula(df_wide, group_vars)
