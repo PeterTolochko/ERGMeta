@@ -115,7 +115,7 @@ create_mvbf_formula <- function(df, group_vars = NULL, sigma = FALSE) {
 #' @returns The fitted model object
 #' @export
 meta_fit <- function(df,
-                     group_var = NULL,
+                     group_vars = NULL,
                      chains = 4,
                      cores = 4,
                      iter = 4e3,
@@ -129,7 +129,7 @@ meta_fit <- function(df,
   if (is.null(group_var)) {
     current_formula <- create_mvbf_formula(df_wide)
   } else {
-    current_formula <- create_mvbf_formula(df_wide, "group_var")
+    current_formula <- create_mvbf_formula(df_wide, group_vars)
   }
   
   print("Current Formula:")
