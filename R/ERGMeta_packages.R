@@ -1,4 +1,4 @@
-#' @importFrom dplyr mutate pivot_longer pivot_wider select
+#' @importFrom dplyr mutate select
 #' @importFrom brms brm mvbf bf prior
 #' @importFrom ergm ergm control.ergm
 #' @importFrom purrr map_dfr

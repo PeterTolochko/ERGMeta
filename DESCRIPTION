@@ -5,4 +5,15 @@ Author: Petro Tolochko
 Maintainer: Petro Tolochko <petro.tolochko@univie.ac.at>
 Version: 0.2.0
 RoxygenNote: 7.2.3
-Imports: dplyr, brms, ergm, network
+Imports:
+  dplyr,
+  brms,
+  ergm,
+  purrr,
+  tibble,
+  tidyr,
+  stats,
+  utils,
+  rlang,
+  magrittr,
+  network
