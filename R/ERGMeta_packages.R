@@ -3,7 +3,7 @@
 #' @importFrom ergm ergm control.ergm
 #' @importFrom purrr map_dfr
 #' @importFrom tibble as_tibble tibble
-#' @importFrom tidyr pivot_longer pivot_wider
+#' @importFrom tidyr pivot_longer pivot_wider left_join
 #' @importFrom stats as.formula coef
 #' @importFrom utils head tail
 #' @importFrom rlang enquo quo_name .data

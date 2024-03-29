@@ -100,7 +100,7 @@ ergm_estimation <- function(network, formula, control_settings = control.ergm())
 #' # networks <- list(net1, net2, net3)
 #' # result <- sequential_estimation(networks, ~edges + nodematch("gender"))
 #' @export
-sequential_estimation <- function(network_list, formula, control_settings = NULL) {
+sequential_estimation <- function(network_list, formula, control_settings = control.ergm()) {
   # Input validation
   if (!is.list(network_list) || any(sapply(network_list, function(x) !inherits(x, "network")))) {
     stop("network_list must be a list of network objects.")
@@ -131,7 +131,7 @@ sequential_estimation <- function(network_list, formula, control_settings = NULL
   if (any(remove_indices)) {
     removed_networks <- c(removed_networks, which(remove_indices))
     estimated_models <- estimated_models[!remove_indices]
-    cat("Networks", paste0(which(remove__indices), collapse = " "), "contain infinite estimates or no variance and were removed.\n")
+    cat("Networks", paste0(which(remove_indices), collapse = " "), "contain infinite estimates or no variance and were removed.\n")
     cat("Consider re-parametrizing the networks if you want to keep more networks in.\n")
   }
   # Prepare the output object
