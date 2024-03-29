@@ -1,12 +1,23 @@
 #' Function to extract estimates and standard errors from a list of fitted models
-#' @param fit_list A list of fitted models
-#' @param grouping_variable (Optional) The variable used for grouping the network objects
+#'
+#' @param fit_list A list of fitted models (e.g., ergm objects).
+#' @param grouping_variable (Optional) The variable used for grouping the network objects.
 #' 
-#' @returns A tibble containing the estimates and the SEs for each coefficient.
+#' @returns A tibble containing the estimates and the standard errors for each coefficient.
 #' @export
-extract_estimates <- function(fit_list, grouping_variable=NULL) {
+extract_estimates <- function(fit_list, grouping_variable = NULL) {
+  # Input validation
+  if (length(fit_list) == 0 || !is.list(fit_list)) {
+    stop("fit_list must be a non-empty list of fitted models.")
+  }
+  if (!all(sapply(fit_list, inherits, "ergm"))) {
+    stop("All elements in fit_list must be ergm objects.")
+  }
+  # if (!is.null(grouping_variable) && !all(sapply(fit_list, function(x) grouping_variable %in% names(x$network)))) {
+  #   stop("The specified grouping_variable is not found in all network objects.")
+  # }
   
-  # extract the group from network objects
+  # Extract the group from network objects
   if (!is.null(grouping_variable)) {
     group_vector <- sapply(fit_list, function(x) unique(x$network %v% grouping_variable))
   } else {
@@ -57,8 +68,10 @@ extract_estimates <- function(fit_list, grouping_variable=NULL) {
   }
   
   # Join estimates and standard errors
-  left_join(estimates, ses)
+  result <- left_join(estimates, ses)
+  return(result)
 }
+
 
 
 

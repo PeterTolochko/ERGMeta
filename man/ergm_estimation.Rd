@@ -4,18 +4,20 @@
 \alias{ergm_estimation}
 \title{Function to estimate an Exponential Random Graph Model (ERGM) on a given network}
 \usage{
-ergm_estimation(network, formula, control_settings = NULL)
+ergm_estimation(network, formula, control_settings = control.ergm())
 }
 \arguments{
 \item{network}{The input network object.}
 
-\item{formula}{Formula for ERGM estimation.}
+\item{formula}{Formula specifying the ERGM model.}
 
-\item{contro_settings:}{Optional control settings for the ERGM estimation.}
+\item{control_settings}{Optional control settings for the ERGM estimation. Default is control.ergm().}
 }
 \value{
-The estimated ERGM model object.
+The estimated ERGM model object or an informative error message.
 }
 \description{
-Function to estimate an Exponential Random Graph Model (ERGM) on a given network
+This function takes a network object, an `ergm` formula, and optional control settings,
+and estimates an ERGM model using the `ergm` function from the `ergm` package.
+It handles potential convergence issues and returns the estimated model object or an informative error message.
 }

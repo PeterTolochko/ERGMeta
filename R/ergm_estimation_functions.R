@@ -1,45 +1,87 @@
 #' Function to rewrite a formula by replacing the response variable with a specified network
-#' This is mostly for internal use.
-#' 
-#' @param formula The original formula to be rewritten. Must be `ergm`-formula.
-#' @param network The network to be used as the new response variable.
-#' @returns The rewritten formula with the network as the response variable
+#'
+#' This function takes an `ergm` formula and a network object and rewrites the formula
+#' by replacing the response variable with the specified network.
+#'
+#' @param formula The original formula to be rewritten. Must be a valid `ergm` formula.
+#' @param network The network object to be used as the new response variable.
+#' @returns The rewritten formula with the network as the response variable.
 #' @export
 rewrite_formula <- function(formula, network) {
+  # Input validation
+  if (!inherits(formula, "formula")) {
+    stop("formula must be a valid ergm formula.")
+  }
+  if (!inherits(network, "network")) {
+    stop("network must be a valid network object.")
+  }
+  
+  # Extract the network name
   network_name <- deparse(substitute(network))
-  terms <- toString(formula[-c(1:2)]) # everything but "network_name ~"
-  # Construct the new formula as a character string
-  new_formula <- as.formula(paste(network_name, "~", terms))
+  
+  # Extract the terms from the original formula
+  terms <- attr(terms(formula), "term.labels")
+  
+  # Construct the new formula using reformulate()
+  new_formula <- reformulate(termlabels = terms, response = network_name)
+  
   return(new_formula)
 }
 
 
 #' Function to estimate an Exponential Random Graph Model (ERGM) on a given network
+#'
+#' This function takes a network object, an `ergm` formula, and optional control settings,
+#' and estimates an ERGM model using the `ergm` function from the `ergm` package.
+#' It handles potential convergence issues and returns the estimated model object or an informative error message.
+#'
 #' @param network The input network object.
-#' @param formula Formula for ERGM estimation.
-#' @param contro_settings: Optional control settings for the ERGM estimation.
-#' @returns The estimated ERGM model object.
+#' @param formula Formula specifying the ERGM model.
+#' @param control_settings Optional control settings for the ERGM estimation. Default is control.ergm().
+#' @returns The estimated ERGM model object or an informative error message.
 #' @export
-ergm_estimation <- function(network,
-                            formula,
-                            control_settings = NULL) {
+ergm_estimation <- function(network, formula, control_settings = control.ergm()) {
+  # Input validation
+  if (!inherits(network, "network")) {
+    stop("network must be a valid network object.")
+  }
+  if (!inherits(formula, "formula")) {
+    stop("formula must be a valid ergm formula.")
+  }
+  
+  # Rewrite the formula with the network
   current_formula <- rewrite_formula(formula, network)
-  out <- tryCatch(
+  
+  # Estimate the ERGM model
+  model <- tryCatch(
     {
-      if (is.null(control_settings)) {
-        ergm::ergm(current_formula)
-      } else {
-        ergm::ergm(current_formula, control = control_settings)
-      }
+      ergm::ergm(current_formula, control = control_settings)
     },
-    error=function(cond) {
-      message("\n\nModel does not converge!!!\n\n")
-      message(cond)
-      return(NA)
-    } 
+    error = function(e) {
+      message("Model estimation failed with the following error:")
+      message(e$message)
+      return(NULL)
+    },
+    warning = function(w) {
+      message("Model estimation generated the following warning:")
+      message(w$message)
+      return(NULL)
+    }
   )
-  return(out)
+  
+  # Check the model convergence
+  if (!is.null(model)) {
+    if (model$failure == FALSE) {
+      return(model)
+    } else {
+      message("Model did not converge. Consider adjusting the control settings or re-parametrizing the model.")
+      return(NULL)
+    }
+  }
+  
+  return(NULL)
 }
+
 
 
 #' Function for sequential estimation of network models
@@ -50,52 +92,58 @@ ergm_estimation <- function(network,
 #' It also checks for any networks with infinite estimates and removes them from the output.
 #'
 #' @param network_list A list of network objects.
-#' @param formula A formula specifying the model to be estimated
-#' @param control_settings Optional control settings for the estimation process.
-#' @returns A list of estimated network models.
+#' @param formula A formula specifying the model to be estimated.
+#' @param control_settings Optional control settings for the estimation process. Default is NULL.
+#' @returns A list containing the estimated network models, removed networks, and estimation information.
 #'
 #' @examples
 #' # networks <- list(net1, net2, net3)
-#' # models <- sequential_estimation(networks, ~edges + nodematch("gender"))
+#' # result <- sequential_estimation(networks, ~edges + nodematch("gender"))
 #' @export
-sequential_estimation <- function(network_list,
-                                  formula,
-                                  control_settings = NULL) {
-  out_models <- lapply(network_list,
-                       function(net) ergm_estimation(net,
-                                                     formula,
-                                                     control_settings))
-  non_null_models <- !is.na(out_models)
-  
-  if (sum(non_null_models) != length(out_models)) {
-    out_models <- out_models[non_null_models]
-    cat("Networks: ")
-    cat(paste0(which(non_null_models == FALSE), sep = " "))
-    cat("\ncould not be estimated.")
-    cat("\nThese networks were removed.\n")
-  } else {
-    cat("All networks were estimated successfully!")
+sequential_estimation <- function(network_list, formula, control_settings = NULL) {
+  # Input validation
+  if (!is.list(network_list) || any(sapply(network_list, function(x) !inherits(x, "network")))) {
+    stop("network_list must be a list of network objects.")
+  }
+  if (!inherits(formula, "formula")) {
+    stop("formula must be a valid ergm formula.")
   }
   
-  non_infinite_est <- sapply(out_models, function(x) !is.infinite(summary(x)$coefficients[ ,1]))
-  non_infinite_est <- colSums(non_infinite_est)
-  infinite_est <- non_infinite_est < max(non_infinite_est)
+  # Perform estimation on each network
+  estimated_models <- lapply(network_list, function(net) ergm_estimation(net, formula, control_settings))
   
-  var_estimation <- sapply(out_models, function(x) !is.na(summary(x)$coefficients[ ,2]))
-  var_estimation <- colSums(var_estimation)
-  no_var_estimation <- var_estimation < max(var_estimation)
+  # Check for networks that could not be estimated
+  estimation_success <- sapply(estimated_models, function(x) !is.null(x) && !is.na(x))
+  removed_networks <- which(estimation_success == FALSE)
   
-  
-  remove_idx <- (infinite_est + no_var_estimation > 0)
-  
-  
-  if (sum(remove_idx) == 0) {
-    out_models <- out_models
+  if (length(removed_networks) > 0) {
+    estimated_models <- estimated_models[estimation_success]
+    cat("Networks:", paste0(removed_networks, collapse = " "), "could not be estimated and were removed.\n")
   } else {
-    out_models <- out_models[!remove_idx]
-
-    cat(paste0("\nIn addition, network ", which(remove_idx == TRUE), " contains infinite estimates / no variance and was removed."))
-    cat("\nConsider re-parametrizing the networks if you want to keep more networks in.")
+    cat("All networks were estimated successfully!\n")
   }
-  return(out_models)
+  
+  # Check for networks with infinite estimates or no variance
+  infinite_estimates <- sapply(estimated_models, function(x) any(is.infinite(summary(x)$coefficients[, 1])))
+  no_variance <- sapply(estimated_models, function(x) any(is.na(summary(x)$coefficients[, 2])))
+  remove_indices <- infinite_estimates | no_variance
+  
+  if (any(remove_indices)) {
+    removed_networks <- c(removed_networks, which(remove_indices))
+    estimated_models <- estimated_models[!remove_indices]
+    cat("Networks", paste0(which(remove__indices), collapse = " "), "contain infinite estimates or no variance and were removed.\n")
+    cat("Consider re-parametrizing the networks if you want to keep more networks in.\n")
+  }
+  # Prepare the output object
+  result <- list(
+    estimated_models = estimated_models,
+    removed_networks = removed_networks,
+    estimation_info = list(
+      total_networks = length(network_list),
+      successfully_estimated = sum(estimation_success),
+      removed_infinite_estimates = sum(infinite_estimates),
+      removed_no_variance = sum(no_variance)
+    )
+  )
+  return(result)
 }

@@ -3,6 +3,6 @@ Type: Package
 Title: Meta-Analysis for Exponential Random Graph Models
 Author: Petro Tolochko
 Maintainer: Petro Tolochko <petro.tolochko@univie.ac.at>
-Version: 0.1.0
+Version: 0.2.0
 RoxygenNote: 7.2.3
 Imports: dplyr, brms, ergm, network

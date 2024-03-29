@@ -9,12 +9,12 @@ sequential_estimation(network_list, formula, control_settings = NULL)
 \arguments{
 \item{network_list}{A list of network objects.}
 
-\item{formula}{A formula specifying the model to be estimated}
+\item{formula}{A formula specifying the model to be estimated.}
 
-\item{control_settings}{Optional control settings for the estimation process.}
+\item{control_settings}{Optional control settings for the estimation process. Default is NULL.}
 }
 \value{
-A list of estimated network models.
+A list containing the estimated network models, removed networks, and estimation information.
 }
 \description{
 This function takes a list of network objects, a formula specifying the model, and optional control settings.
@@ -24,5 +24,5 @@ It also checks for any networks with infinite estimates and removes them from th
 }
 \examples{
 # networks <- list(net1, net2, net3)
-# models <- sequential_estimation(networks, ~edges + nodematch("gender"))
+# result <- sequential_estimation(networks, ~edges + nodematch("gender"))
 }

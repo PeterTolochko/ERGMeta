@@ -6,7 +6,7 @@
 \usage{
 meta_fit(
   df,
-  group_var = NULL,
+  group_vars = NULL,
   chains = 4,
   cores = 4,
   iter = 4000,
@@ -17,8 +17,6 @@ meta_fit(
 \arguments{
 \item{df}{A data frame containing the data for the meta-analysis}
 
-\item{group_var}{(optional) The variable indicating the grouping structure of the data}
-
 \item{chains}{The number of Markov chains to run (default: 4)}
 
 \item{cores}{The number of CPU cores to use for parallel computing (default: 4)}
@@ -28,6 +26,8 @@ meta_fit(
 \item{priors}{The prior distribution for the regression coefficients (default: normal(0, 2))}
 
 \item{backend}{The backend for running the Bayesian regression (default: "cmdstanr")}
+
+\item{group_var}{(optional) The variable indicating the grouping structure of the data}
 }
 \value{
 The fitted model object

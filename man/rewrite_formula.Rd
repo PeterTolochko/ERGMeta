@@ -2,20 +2,19 @@
 % Please edit documentation in R/ergm_estimation_functions.R
 \name{rewrite_formula}
 \alias{rewrite_formula}
-\title{Function to rewrite a formula by replacing the response variable with a specified network
-This is mostly for internal use.}
+\title{Function to rewrite a formula by replacing the response variable with a specified network}
 \usage{
 rewrite_formula(formula, network)
 }
 \arguments{
-\item{formula}{The original formula to be rewritten. Must be `ergm`-formula.}
+\item{formula}{The original formula to be rewritten. Must be a valid `ergm` formula.}
 
-\item{network}{The network to be used as the new response variable.}
+\item{network}{The network object to be used as the new response variable.}
 }
 \value{
-The rewritten formula with the network as the response variable
+The rewritten formula with the network as the response variable.
 }
 \description{
-Function to rewrite a formula by replacing the response variable with a specified network
-This is mostly for internal use.
+This function takes an `ergm` formula and a network object and rewrites the formula
+by replacing the response variable with the specified network.
 }
