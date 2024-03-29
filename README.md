@@ -70,32 +70,34 @@ Here are some examples of how to use the functions in the ERGMeta package:
 ```R
 # Load the required packages
 library(ERGMeta)
-library(ergm)
+library(network)
 
 # Create a list of network objects
 network_list <- list(
-  network1 = ergm::network(matrix(rbinom(100, 1, 0.3), nrow = 10)),
-  network2 = ergm::network(matrix(rbinom(100, 1, 0.4), nrow = 10)),
-  network3 = ergm::network(matrix(rbinom(100, 1, 0.5), nrow = 10))
+  network(matrix(rbinom(100, 1, 0.3), nrow = 10)),
+  network(matrix(rbinom(100, 1, 0.4), nrow = 10)),
+  network(matrix(rbinom(100, 1, 0.5), nrow = 10))
 )
 
 # Specify the ERGM formula
-formula <- ~ edges + triangle
+# Specify the ERGM formula
+formula <- net ~ edges + mutual
 
 # Perform sequential estimation on the network list
 estimated_models <- sequential_estimation(network_list, formula)
 
 # Extract estimates and standard errors from the fitted models
-estimates_df <- extract_estimates(estimated_models)
+estimates_df <- extract_estimates(estimated_models$estimated_models)
 
 # Fit a meta-analysis model using Bayesian regression
 meta_analysis_model <- meta_fit(estimates_df)
 
 # Print the summary of the meta-analysis model
 summary(meta_analysis_model)
+
 ```
 
-In this example, we first create a list of network objects using the `ergm::network` function. We then specify the ERGM formula using the `edges` and `triangle` terms.
+In this example, we first create a list of network objects using the `network::network` function. We then specify the ERGM formula using the `edges` and `mututal` terms.
 
 Next, we use the `sequential_estimation` function to perform sequential estimation of the ERGM on each network in the list. The `extract_estimates` function is then used to extract the estimates and standard errors from the fitted models.
 
@@ -103,7 +105,7 @@ Finally, we use the `meta_fit` function to fit a meta-analysis model using Bayes
 
 ## Contributing
 
-Contributions to the ERGMeta package are welcome! If you find any bugs, have suggestions for improvements, or would like to add new features, please open an issue or submit a pull request on the GitHub repository.
+Contributions to the ERGMeta package are welcome! If you find any bugs, have suggestions for improvements, or would like to add new features, please open an issue or submit a pull request.
 
 ## License
 
@@ -112,3 +114,6 @@ The ERGMeta package is licensed under the MIT License.
 ## References
 
 Tolochko, P., & Boomgaarden, H. G. (2024). Same but different: A comparison of estimation approaches for exponential random graph models for multiple networks. Social Networks, 76, 1-11.
+
+Bürkner, P. C. (2017). brms: An R package for Bayesian multilevel models using Stan. Journal of Statistical Software, 80(1), 1-28.
+
