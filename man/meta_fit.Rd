@@ -10,7 +10,7 @@ meta_fit(
   chains = 4,
   cores = 4,
   iter = 4000,
-  priors = prior("normal(0, 2)", class = "b"),
+  priors = NULL,
   backend = "cmdstanr",
   sigma = FALSE
 )
@@ -26,7 +26,11 @@ meta_fit(
 
 \item{iter}{The number of iterations for each chain (default: 4000)}
 
-\item{priors}{The prior distribution for the regression coefficients (default: normal(0, 2))}
+\item{priors}{Optional prior specification passed to \code{brms::brm()}.
+If \code{NULL} (default), ERGMeta applies \code{normal(0, 2)} to the
+available population-effect class (\code{b} or \code{Intercept}).
+If that mapping fails, \code{meta_fit()} falls back to \code{brms}
+default priors with a warning.}
 
 \item{backend}{The backend for running the Bayesian regression (default: "cmdstanr")}
 
@@ -37,4 +41,9 @@ The fitted model object
 }
 \description{
 Function to fit a meta-analysis model using Bayesian regression
+}
+\details{
+The input \code{df} must contain a complete network-by-coefficient grid:
+for each \code{network}, there should be exactly one row per \code{coefs}
+with finite \code{estimate} and strictly positive \code{ses}.
 }

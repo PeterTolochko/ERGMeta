@@ -127,6 +127,38 @@ create_mvbf_formula <- function(df, group_vars = NULL, sigma = FALSE) {
 }
 
 
+.default_meta_priors <- function(current_formula, df_wide) {
+  default_prior_table <- brms::default_prior(current_formula, data = df_wide)
+  prior_classes <- unique(default_prior_table$class)
+
+  if ("b" %in% prior_classes) {
+    return(brms::prior("normal(0, 2)", class = "b"))
+  }
+  if ("Intercept" %in% prior_classes) {
+    intercept_rows <- default_prior_table[default_prior_table$class == "Intercept", , drop = FALSE]
+    intercept_resps <- unique(as.character(intercept_rows$resp))
+    intercept_resps <- intercept_resps[!is.na(intercept_resps) & nzchar(intercept_resps)]
+
+    # In some brms multivariate parameterizations, Intercept priors must be
+    # specified per response.
+    if (length(intercept_resps) > 0) {
+      prior_list <- lapply(intercept_resps, function(r) {
+        brms::prior("normal(0, 2)", class = "Intercept", resp = r)
+      })
+      return(do.call(c, prior_list))
+    }
+
+    return(brms::prior("normal(0, 2)", class = "Intercept"))
+  }
+
+  stop(
+    "Could not determine a compatible default prior class for this model. ",
+    "Set 'priors' explicitly.",
+    call. = FALSE
+  )
+}
+
+
 #' Function to fit a meta-analysis model using Bayesian regression
 #'
 #' @param df A data frame containing the data for the meta-analysis
@@ -134,7 +166,11 @@ create_mvbf_formula <- function(df, group_vars = NULL, sigma = FALSE) {
 #' @param chains The number of Markov chains to run (default: 4)
 #' @param cores The number of CPU cores to use for parallel computing (default: 4)
 #' @param iter The number of iterations for each chain (default: 4000)
-#' @param priors The prior distribution for the regression coefficients (default: normal(0, 2))
+#' @param priors Optional prior specification passed to \code{brms::brm()}.
+#'   If \code{NULL} (default), ERGMeta applies \code{normal(0, 2)} to the
+#'   available population-effect class (\code{b} or \code{Intercept}).
+#'   If that mapping fails, \code{meta_fit()} falls back to \code{brms}
+#'   default priors with a warning.
 #' @param backend The backend for running the Bayesian regression (default: "cmdstanr")
 #' @param sigma (Optional) Logical indicating whether to include sigma in the formula
 #' @returns The fitted model object
@@ -144,7 +180,7 @@ meta_fit <- function(df,
                      chains = 4,
                      cores = 4,
                      iter = 4e3,
-                     priors = prior("normal(0, 2)", class = "b"),
+                     priors = NULL,
                      backend = "cmdstanr",
                      sigma = FALSE) {
   required_columns <- c("network", "coefs", "estimate", "ses")
@@ -165,21 +201,80 @@ meta_fit <- function(df,
     stop("df contains duplicate rows for the same network/coefficient combination.")
   }
 
-  df_wide <- df %>%
-    pivot_wider(values_from = c("estimate", "ses"),
-                names_from = "coefs")
+  id_cols <- unique(c("network", group_vars))
+  df_wide <- tidyr::pivot_wider(
+    data = df,
+    id_cols = id_cols,
+    values_from = c("estimate", "ses"),
+    names_from = "coefs"
+  )
+
+  estimate_cols <- grep("^estimate_", colnames(df_wide), value = TRUE)
+  ses_cols <- sub("^estimate_", "ses_", estimate_cols)
+  model_cols <- unique(c(estimate_cols, ses_cols))
+
+  if (length(estimate_cols) == 0 || length(ses_cols) == 0) {
+    stop("Could not create estimate/ses columns after reshaping. Check df$coefs values.")
+  }
+  if (any(!model_cols %in% colnames(df_wide))) {
+    stop("Reshaped data is missing expected estimate/ses columns.")
+  }
+  incomplete <- !stats::complete.cases(df_wide[, model_cols, drop = FALSE])
+  if (any(incomplete)) {
+    bad_networks <- unique(df_wide$network[incomplete])
+    stop(sprintf(
+      paste(
+        "Missing estimate/ses values after reshaping for network(s): %s.",
+        "Ensure each network has exactly one row per coefficient in df."
+      ),
+      paste(bad_networks, collapse = ", ")
+    ))
+  }
+  if (any(!is.finite(as.matrix(df_wide[, ses_cols, drop = FALSE])) |
+          as.matrix(df_wide[, ses_cols, drop = FALSE]) <= 0)) {
+    stop("All ses values must be finite and strictly positive.")
+  }
 
   current_formula <- create_mvbf_formula(df_wide,
                                          group_vars = group_vars,
                                          sigma = sigma)
 
-  fit <- brms::brm(current_formula,
-             prior = priors,
-             iter = iter,
-             data = df_wide,
-             chains = chains,
-             cores = cores,
-             backend = backend)
+  auto_prior <- is.null(priors)
+  if (is.null(priors)) {
+    priors <- .default_meta_priors(current_formula = current_formula, df_wide = df_wide)
+  }
+
+  fit <- tryCatch(
+    brms::brm(
+      current_formula,
+      prior = priors,
+      iter = iter,
+      data = df_wide,
+      chains = chains,
+      cores = cores,
+      backend = backend
+    ),
+    error = function(e) {
+      msg <- conditionMessage(e)
+      if (isTRUE(auto_prior) && grepl("priors do not correspond", msg, fixed = TRUE)) {
+        warning(
+          "Automatic prior mapping failed for this brms version/formula; refitting with brms default priors.",
+          call. = FALSE
+        )
+        return(
+          brms::brm(
+            current_formula,
+            iter = iter,
+            data = df_wide,
+            chains = chains,
+            cores = cores,
+            backend = backend
+          )
+        )
+      }
+      stop(e)
+    }
+  )
   
   return(fit)
 }
