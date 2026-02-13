@@ -1,6 +1,20 @@
+.DS_Store
 *.DS_Store
-*.RData
-*.Rproj.user
-*.Rhistory
 
-.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/
+
+# Local environment files (do not commit secrets)
+.Renviron
+.Renviron.*
+!.Renviron.example
+
+# R package build/check artifacts
+.Rcheck/
+*.Rcheck/
+*.tar.gz
+
+# Local package library
+.r_libs/

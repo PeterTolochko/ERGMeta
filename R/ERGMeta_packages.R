@@ -4,8 +4,8 @@
 #' @importFrom purrr map_dfr
 #' @importFrom tibble as_tibble tibble
 #' @importFrom tidyr pivot_longer pivot_wider
-#' @importFrom stats as.formula coef
+#' @importFrom stats as.formula coef nlminb rnorm runif
 #' @importFrom utils head tail
 #' @importFrom rlang enquo quo_name .data
 #' @importFrom magrittr %>%
-#' @importFrom network %v%
+#' @importFrom network %n%

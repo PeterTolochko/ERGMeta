@@ -7,68 +7,56 @@
 #' @export
 extract_estimates <- function(fit_list, grouping_variable = NULL) {
   # Input validation
-  if (length(fit_list) == 0 || !is.list(fit_list)) {
+  if (!is.list(fit_list) || length(fit_list) == 0) {
     stop("fit_list must be a non-empty list of fitted models.")
   }
-  if (!all(sapply(fit_list, inherits, "ergm"))) {
+  if (!all(vapply(fit_list, inherits, logical(1), "ergm"))) {
     stop("All elements in fit_list must be ergm objects.")
   }
-  # if (!is.null(grouping_variable) && !all(sapply(fit_list, function(x) grouping_variable %in% names(x$network)))) {
-  #   stop("The specified grouping_variable is not found in all network objects.")
-  # }
-  
-  # Extract the group from network objects
-  if (!is.null(grouping_variable)) {
-    group_vector <- sapply(fit_list, function(x) unique(x$network %v% grouping_variable))
-  } else {
-    group_vector <- rep(NA, length(fit_list))
+
+  result <- purrr::map_dfr(seq_along(fit_list), function(i) {
+    current_fit <- fit_list[[i]]
+    current_summary <- summary(current_fit)$coefficients
+    if (is.null(current_summary) || ncol(current_summary) < 2) {
+      stop(sprintf(
+        "Model %s does not contain a valid coefficient matrix with estimates and standard errors.",
+        i
+      ))
+    }
+
+    terms <- rownames(current_summary)
+    if (is.null(terms)) {
+      terms <- paste0("theta_", seq_len(nrow(current_summary)) - 1L)
+    }
+
+    group_value <- NA_character_
+    if (!is.null(grouping_variable)) {
+      group_value <- network::`%n%`(current_fit$network, grouping_variable)
+      if (is.null(group_value) || length(group_value) == 0) {
+        group_value <- NA_character_
+      } else {
+        group_value <- as.character(group_value[[1]])
+      }
+    }
+
+    tibble::tibble(
+      network = i,
+      coefs = make.names(terms),
+      term = terms,
+      estimate = unname(current_summary[, 1]),
+      ses = unname(current_summary[, 2]),
+      group_var = group_value
+    )
+  })
+
+  if (!is.null(grouping_variable) && any(is.na(result$group_var))) {
+    stop("The specified grouping_variable is not found as a network attribute in all fitted models.")
   }
-  
-  # Extract estimates and standard errors from each fitted model
-  estimates <- t(sapply(fit_list, function(x) summary(x)$coefficients[ ,1]))
-  ses <- t(sapply(fit_list, function(x) summary(x)$coefficients[ ,2]))
-  
-  # Create column names for estimates and standard errors
-  names <- paste0("theta_", 0:(ncol(estimates)-1))
-  colnames(estimates) <- names
-  colnames(ses) <- names
-  
-  # Convert estimates to tibble and add grouping variables
-  estimates <- estimates %>% as_tibble() %>%
-    mutate(
-      network = 1:nrow(estimates), # grouping variable
-      group_var = group_vector
-    ) %>%
-    pivot_longer(
-      cols = starts_with("theta_"),
-      names_to = "coefs"
-    ) %>%
-    mutate(estimate = value) %>%
-    select(-value)
-  
-  # Convert standard errors to tibble and add grouping variables
-  ses <- ses %>% as_tibble() %>%
-    mutate(
-      network = 1:nrow(ses),
-      group_var = group_vector
-    ) %>%
-    pivot_longer(
-      cols = starts_with("theta_"),
-      names_to = "coefs"
-    ) %>%
-    mutate(ses = value) %>%
-    select(-value)
-  
-  # remove group column if no group supplied
+
   if (is.null(grouping_variable)) {
-    estimates <- estimates %>%
-      select(-group_var)
-    ses <- ses %>%
-      select(-group_var)
+    result$group_var <- NULL
   }
-  
-  # Join estimates and standard errors
-  result <- left_join(estimates, ses)
+
   return(result)
 }
 
@@ -83,35 +71,58 @@ extract_estimates <- function(fit_list, grouping_variable = NULL) {
 #' @returns The multivariate formula for the brm function from brms package
 #' @export
 create_mvbf_formula <- function(df, group_vars = NULL, sigma = FALSE) {
-  num_pairs <- length(grep("^estimate", colnames(df)))
-  
-  if (is.null(group_vars)) {
-    formula_list <- lapply(0:(num_pairs - 1), function(i) {
-      estimate_col <- paste("estimate_theta_", i, sep = "")
-      ses_col <- paste("ses_theta_", i, sep = "")
-      bf_str <- sprintf("%s | se(%s, sigma = %s) ~ 0 + Intercept", estimate_col, ses_col, sigma)
-      return(bf_str)
-    })
-    
-  } else {
-    
-    formula_list <- lapply(0:(num_pairs - 1), function(i) {
-      estimate_col <- paste("estimate_theta_", i, sep = "")
-      ses_col <- paste("ses_theta_", i, sep = "")
-      bf_str <- sprintf("%s | se(%s, sigma = %s) ~ 0 + Intercept ", estimate_col, ses_col, sigma)
-      
-      for (g in 1:length(group_vars)) {
-        bf_str <- paste0(bf_str, sprintf("+ (1 | %s)", group_vars[g]))
-      }
-      
-      return(bf_str)
-    })
+  if (!is.logical(sigma) || length(sigma) != 1 || is.na(sigma)) {
+    stop("sigma must be a single TRUE/FALSE value.")
   }
-  
-  formula_list <- lapply(1:length(formula_list), function(x) bf(as.formula(formula_list[[x]])))
+  if (!is.null(group_vars) && !is.character(group_vars)) {
+    stop("group_vars must be NULL or a character vector.")
+  }
+
+  estimate_cols <- grep("^estimate_", colnames(df), value = TRUE)
+  if (length(estimate_cols) == 0) {
+    stop("df must contain one or more columns prefixed with 'estimate_'.")
+  }
+
+  ses_cols <- sub("^estimate_", "ses_", estimate_cols)
+  missing_ses <- setdiff(ses_cols, colnames(df))
+  if (length(missing_ses) > 0) {
+    stop(sprintf(
+      "Missing corresponding standard-error columns: %s",
+      paste(missing_ses, collapse = ", ")
+    ))
+  }
+
+  if (!is.null(group_vars) && length(group_vars) > 0) {
+    missing_group_vars <- setdiff(group_vars, colnames(df))
+    if (length(missing_group_vars) > 0) {
+      stop(sprintf(
+        "Grouping variables not found in df: %s",
+        paste(missing_group_vars, collapse = ", ")
+      ))
+    }
+  }
+
+  sigma_flag <- if (isTRUE(sigma)) "TRUE" else "FALSE"
+  formula_list <- lapply(seq_along(estimate_cols), function(i) {
+    estimate_col <- estimate_cols[[i]]
+    ses_col <- ses_cols[[i]]
+    bf_str <- sprintf(
+      "`%s` | se(`%s`, sigma = %s) ~ 0 + Intercept",
+      estimate_col,
+      ses_col,
+      sigma_flag
+    )
+
+    if (!is.null(group_vars) && length(group_vars) > 0) {
+      random_effects <- paste(sprintf("(1 | `%s`)", group_vars), collapse = " + ")
+      bf_str <- paste(bf_str, "+", random_effects)
+    }
+
+    brms::bf(as.formula(bf_str))
+  })
+
   combined_formula <- Reduce(`+`, formula_list)
-  out_formula <- brms::mvbf(combined_formula,
-                      rescor = TRUE)
+  out_formula <- brms::mvbf(combined_formula, rescor = TRUE)
   return(out_formula)
 }
 
@@ -119,12 +130,13 @@ create_mvbf_formula <- function(df, group_vars = NULL, sigma = FALSE) {
 #' Function to fit a meta-analysis model using Bayesian regression
 #'
 #' @param df A data frame containing the data for the meta-analysis
-#' @param group_var (optional) The variable indicating the grouping structure of the data
+#' @param group_vars (optional) Variables indicating the grouping structure of the data
 #' @param chains The number of Markov chains to run (default: 4)
 #' @param cores The number of CPU cores to use for parallel computing (default: 4)
 #' @param iter The number of iterations for each chain (default: 4000)
 #' @param priors The prior distribution for the regression coefficients (default: normal(0, 2))
 #' @param backend The backend for running the Bayesian regression (default: "cmdstanr")
+#' @param sigma (Optional) Logical indicating whether to include sigma in the formula
 #' @returns The fitted model object
 #' @export
 meta_fit <- function(df,
@@ -132,22 +144,35 @@ meta_fit <- function(df,
                      chains = 4,
                      cores = 4,
                      iter = 4e3,
-                     priors = prior(normal(0, 2), class = "b"),
-                     backend = "cmdstanr") {
-  
-  df_wide <- df %>%
-    pivot_wider(values_from = c(estimate, ses),
-                names_from = coefs)
-  
-  if (is.null(group_vars)) {
-    current_formula <- create_mvbf_formula(df_wide)
-  } else {
-    current_formula <- create_mvbf_formula(df_wide, group_vars)
+                     priors = prior("normal(0, 2)", class = "b"),
+                     backend = "cmdstanr",
+                     sigma = FALSE) {
+  required_columns <- c("network", "coefs", "estimate", "ses")
+  missing_columns <- setdiff(required_columns, colnames(df))
+  if (length(missing_columns) > 0) {
+    stop(sprintf(
+      "df is missing required columns: %s",
+      paste(missing_columns, collapse = ", ")
+    ))
   }
-  
-  print("Current Formula:")
-  print(current_formula)
-  
+  if (!is.null(group_vars) && !all(group_vars %in% colnames(df))) {
+    stop(sprintf(
+      "group_vars not found in df: %s",
+      paste(setdiff(group_vars, colnames(df)), collapse = ", ")
+    ))
+  }
+  if (any(duplicated(df[, c("network", "coefs")]))) {
+    stop("df contains duplicate rows for the same network/coefficient combination.")
+  }
+
+  df_wide <- df %>%
+    pivot_wider(values_from = c("estimate", "ses"),
+                names_from = "coefs")
+
+  current_formula <- create_mvbf_formula(df_wide,
+                                         group_vars = group_vars,
+                                         sigma = sigma)
+
   fit <- brms::brm(current_formula,
              prior = priors,
              iter = iter,

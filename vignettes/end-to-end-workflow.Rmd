@@ -1,0 +1,143 @@
+---
+title: "End-to-End ERGMeta Workflow"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{End-to-End ERGMeta Workflow}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+library(ERGMeta)
+set.seed(666)
+```
+
+This vignette shows a full ERGMeta pipeline using simulated network-level
+estimates and covariance matrices. The workflow is intentionally lightweight so
+you can run it quickly during development or CI.
+
+## 1) Generate analysis-ready inputs
+
+```{r}
+sim <- simulate_ergmeta_data(
+  n_networks = 30,
+  coef_terms = c("edges", "mutual"),
+  beta_intercept = c(-2.1, 0.35),
+  beta_moderator = c(0.25, -0.15),
+  exclusion_prob = 0.10,
+  seed = 666
+)
+
+names(sim)
+head(sim$estimates)
+head(sim$covariance)
+```
+
+The simulated object already mirrors ERGMeta's expected analysis structure:
+
+- `estimates`: per-network ERGM coefficient estimates and standard errors.
+- `covariance`: within-network covariance matrices in tidy form.
+- `moderators`: network-level covariates for moderator meta-regression.
+- `diagnostics`: inclusion/exclusion metadata.
+
+## 2) Run exclusion sensitivity analysis
+
+```{r}
+sens <- run_exclusion_sensitivity(
+  df = sim$estimates,
+  method = "random",
+  moderators = "moderator_x",
+  moderator_df = sim$moderators,
+  include_leave_one_out = TRUE,
+  exclude_sets = list(drop_1_and_2 = c(1L, 2L))
+)
+
+head(sens)
+```
+
+This gives baseline pooled estimates (`scenario == "all"`), leave-one-out
+stability checks, and custom exclusion scenarios.
+
+## 3) Fit covariance-aware multivariate meta-regression
+
+```{r}
+cov_fit <- meta_fit_covariance(
+  estimates_df = sim$estimates,
+  covariance_df = sim$covariance,
+  method = "random",
+  moderators = "moderator_x",
+  moderator_df = sim$moderators
+)
+
+cov_fit$reference_summary
+cov_fit$tau
+head(cov_fit$fitted)
+```
+
+Use this output to inspect pooled effects at a reference moderator profile and
+term-level between-network heterogeneity (`tau`, `tau^2`).
+
+## 4) Benchmark methods with a small Monte Carlo study
+
+```{r}
+bench <- run_ergmeta_simulation(
+  n_sims = 6,
+  n_networks = 24,
+  methods = c("sens_random", "sens_random_mod", "cov_random", "cov_random_mod"),
+  progress = FALSE,
+  seed = 42
+)
+
+bench$summary
+```
+
+The benchmark summary reports bias, RMSE, coverage, heterogeneity, and
+convergence behavior per method and coefficient.
+
+## 5) Lightweight visualization layer
+
+```{r}
+if (requireNamespace("ggplot2", quietly = TRUE)) {
+  plot_sensitivity(sens, value = "delta_from_all")
+  plot_tau(cov_fit, scale = "tau2")
+  plot_simulation_summary(bench, metric = "rmse")
+} else {
+  message("Install ggplot2 to render the plotting helpers.")
+}
+```
+
+The plotting helpers are intentionally thin wrappers over ERGMeta outputs:
+
+- `plot_sensitivity()`: scenario-level perturbation of pooled estimates/tau.
+- `plot_tau()`: heterogeneity profiles from sensitivity or covariance-aware fit.
+- `plot_simulation_summary()`: method comparison from simulation benchmarks.
+
+## 6) Optional pathway from fitted ERGMs
+
+If you already estimated ERGMs via `sequential_estimation()`, you can use the
+methodological roadmap wrapper:
+
+```{r eval = FALSE}
+roadmap <- methodology_roadmap(
+  fit_list = estimated_models$estimated_models,
+  grouping_variable = NULL,
+  include_leave_one_out = TRUE,
+  sensitivity_method = "random",
+  fit_covariance_model = TRUE
+)
+
+roadmap$diagnostics
+roadmap$sensitivity
+roadmap$covariance_meta$reference_summary
+```
+
+## Interpretation checklist
+
+1. Start with baseline pooled estimates (`scenario == "all"`).
+2. Check `delta_from_all` and `delta_tau2_from_all` under exclusions.
+3. Inspect covariance-aware `tau` to quantify unexplained heterogeneity.
+4. Use simulation summaries to choose robust default methods for your use case.

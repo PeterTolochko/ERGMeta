@@ -23,7 +23,7 @@ rewrite_formula <- function(formula, network) {
   terms <- attr(terms(formula), "term.labels")
   
   # Construct the new formula using reformulate()
-  new_formula <- reformulate(termlabels = terms, response = network_name)
+  new_formula <- stats::reformulate(termlabels = terms, response = network_name)
   
   return(new_formula)
 }
@@ -40,7 +40,7 @@ rewrite_formula <- function(formula, network) {
 #' @param control_settings Optional control settings for the ERGM estimation. Default is control.ergm().
 #' @returns The estimated ERGM model object or NULL if estimation fails or produces degenerate results.
 #' @export
-ergm_estimation <- function(network, formula, control_settings = control.ergm()) {
+ergm_estimation <- function(network, formula, control_settings = ergm::control.ergm()) {
   # Input validation
   if (!inherits(network, "network")) {
     stop("network must be a valid network object.")
@@ -52,23 +52,29 @@ ergm_estimation <- function(network, formula, control_settings = control.ergm())
   # Rewrite the formula with the network
   current_formula <- rewrite_formula(formula, network)
   
-  # Estimate the ERGM model using tryCatch to capture errors and warnings
+  warnings <- character(0)
+
+  # Estimate the ERGM model while preserving warning-only fits
   model <- tryCatch(
-    {
-      ergm::ergm(current_formula, control = control_settings)
-    },
+    withCallingHandlers(
+      ergm::ergm(current_formula, control = control_settings),
+      warning = function(w) {
+        warnings <<- c(warnings, conditionMessage(w))
+        invokeRestart("muffleWarning")
+      }
+    ),
     error = function(e) {
       message("Model estimation failed with the following error:")
       message(e$message)
       return(NULL)
-    },
-    warning = function(w) {
-      message("Model estimation generated the following warning:")
-      message(w$message)
-      return(NULL)
     }
   )
   
+  if (length(warnings) > 0) {
+    message("Model estimation generated warning(s):")
+    message(paste(unique(warnings), collapse = "\n"))
+  }
+
   # If the model was estimated, check for convergence and infinite coefficients
   if (!is.null(model)) {
     # Check for convergence issues
@@ -78,8 +84,7 @@ ergm_estimation <- function(network, formula, control_settings = control.ergm())
     }
     
     # Check if any estimated coefficients are infinite
-    # Using ergm::coef() to extract the coefficients
-    coefs <- tryCatch(ergm::coef(model), error = function(e) NULL)
+    coefs <- tryCatch(stats::coef(model), error = function(e) NULL)
     if (!is.null(coefs) && any(is.infinite(coefs))) {
       message("Model estimated but contains infinite coefficient(s); skipping network.")
       return(NULL)
@@ -110,9 +115,12 @@ ergm_estimation <- function(network, formula, control_settings = control.ergm())
 #' # networks <- list(net1, net2, net3)
 #' # result <- sequential_estimation(networks, ~edges + nodematch("gender"), verbose = TRUE)
 #' @export
-sequential_estimation <- function(network_list, formula, control_settings = control.ergm(), verbose = TRUE) {
+sequential_estimation <- function(network_list, formula, control_settings = ergm::control.ergm(), verbose = TRUE) {
   # Input validation
-  if (!is.list(network_list) || any(sapply(network_list, function(x) !inherits(x, "network")))) {
+  if (!is.list(network_list) || length(network_list) == 0) {
+    stop("network_list must be a non-empty list of network objects.")
+  }
+  if (any(vapply(network_list, function(x) !inherits(x, "network"), logical(1)))) {
     stop("network_list must be a list of network objects.")
   }
   if (!inherits(formula, "formula")) {
@@ -121,7 +129,7 @@ sequential_estimation <- function(network_list, formula, control_settings = cont
   
   n_networks <- length(network_list)
   estimated_models <- vector("list", n_networks)
-  removed_networks <- c()
+  removed_networks <- integer(0)
   
   for (i in seq_along(network_list)) {
     if (verbose) cat("Estimating network", i, "of", n_networks, "\n")
@@ -134,13 +142,28 @@ sequential_estimation <- function(network_list, formula, control_settings = cont
   }
   
   # Filter out NULL elements (networks that failed estimation)
-  valid_idx <- which(!sapply(estimated_models, is.null))
+  valid_idx <- which(!vapply(estimated_models, is.null, logical(1)))
   estimated_models <- estimated_models[valid_idx]
   
   # Check for networks with infinite estimates or no variance
-  infinite_estimates <- sapply(estimated_models, function(x) any(is.infinite(summary(x)$coefficients[, 1])))
-  no_variance <- sapply(estimated_models, function(x) any(is.na(summary(x)$coefficients[, 2])))
-  remove_indices <- infinite_estimates | no_variance
+  if (length(estimated_models) > 0) {
+    model_summaries <- lapply(estimated_models, summary)
+    infinite_estimates <- vapply(
+      model_summaries,
+      function(x) any(is.infinite(x$coefficients[, 1])),
+      logical(1)
+    )
+    no_variance <- vapply(
+      model_summaries,
+      function(x) any(is.na(x$coefficients[, 2])),
+      logical(1)
+    )
+    remove_indices <- infinite_estimates | no_variance
+  } else {
+    infinite_estimates <- logical(0)
+    no_variance <- logical(0)
+    remove_indices <- logical(0)
+  }
   
   if (any(remove_indices)) {
     removed_idx <- valid_idx[which(remove_indices)]

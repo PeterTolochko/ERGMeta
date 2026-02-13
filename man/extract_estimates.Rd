@@ -9,10 +9,10 @@ extract_estimates(fit_list, grouping_variable = NULL)
 \arguments{
 \item{fit_list}{A list of fitted models (e.g., ergm objects).}
 
-\item{grouping_variable}{(Optional) The variable used for grouping the network objects.}
+\item{grouping_variable}{(Optional) A network-level attribute used for grouping.}
 }
 \value{
-A tibble containing the estimates and the standard errors for each coefficient.
+A tibble containing network id, coefficient id, coefficient term, estimate, and standard error.
 }
 \description{
 Function to extract estimates and standard errors from a list of fitted models

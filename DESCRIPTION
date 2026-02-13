@@ -1,9 +1,20 @@
 Package: ERGMeta
 Type: Package
 Title: Meta-Analysis for Exponential Random Graph Models
-Author: Petro Tolochko
-Maintainer: Petro Tolochko <petro.tolochko@univie.ac.at>
+Description: Tools to estimate Exponential Random Graph Models (ERGMs) across
+    multiple networks, extract coefficient estimates and standard errors, and
+    fit Bayesian meta-analytic models over ERGM parameters. Methodological
+    background is discussed in Tolochko and Boomgaarden (2024)
+    <doi:10.1016/j.socnet.2023.05.003>.
+Authors@R: person(given = "Petro",
+    family = "Tolochko",
+    role = c("aut", "cre"),
+    email = "petro.tolochko@univie.ac.at")
+License: MIT + file LICENSE
 Version: 0.2.0
+Encoding: UTF-8
+URL: https://github.com/PeterTolochko/ERGMeta
+BugReports: https://github.com/PeterTolochko/ERGMeta/issues
 RoxygenNote: 7.2.3
 Imports:
   dplyr,
@@ -17,3 +28,10 @@ Imports:
   rlang,
   magrittr,
   network
+Suggests:
+  testthat (>= 3.0.0),
+  ggplot2,
+  knitr,
+  rmarkdown
+VignetteBuilder: knitr
+Config/testthat/edition: 3

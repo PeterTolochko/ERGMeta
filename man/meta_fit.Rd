@@ -10,12 +10,15 @@ meta_fit(
   chains = 4,
   cores = 4,
   iter = 4000,
-  priors = prior(normal(0, 2), class = "b"),
-  backend = "cmdstanr"
+  priors = prior("normal(0, 2)", class = "b"),
+  backend = "cmdstanr",
+  sigma = FALSE
 )
 }
 \arguments{
 \item{df}{A data frame containing the data for the meta-analysis}
+
+\item{group_vars}{(optional) Variables indicating the grouping structure of the data}
 
 \item{chains}{The number of Markov chains to run (default: 4)}
 
@@ -27,7 +30,7 @@ meta_fit(
 
 \item{backend}{The backend for running the Bayesian regression (default: "cmdstanr")}
 
-\item{group_var}{(optional) The variable indicating the grouping structure of the data}
+\item{sigma}{(Optional) Logical indicating whether to include sigma in the formula}
 }
 \value{
 The fitted model object

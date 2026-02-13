@@ -4,14 +4,21 @@
 \alias{sequential_estimation}
 \title{Function for sequential estimation of network models}
 \usage{
-sequential_estimation(network_list, formula, control_settings = NULL)
+sequential_estimation(
+  network_list,
+  formula,
+  control_settings = ergm::control.ergm(),
+  verbose = TRUE
+)
 }
 \arguments{
 \item{network_list}{A list of network objects.}
 
 \item{formula}{A formula specifying the model to be estimated.}
 
-\item{control_settings}{Optional control settings for the estimation process. Default is NULL.}
+\item{control_settings}{Optional control settings for the estimation process. Default is control.ergm().}
+
+\item{verbose}{Logical. If TRUE, prints the index of each network being estimated.}
 }
 \value{
 A list containing the estimated network models, removed networks, and estimation information.
